@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { jsonError, notFound, parseJson, requireApiUser } from "@/lib/api";
 import { findDocumentForUser } from "@/lib/documents";
 import { can } from "@/lib/permissions";
+import { sanitizeDocumentHtml } from "@/lib/sanitize";
 import { UpdateDocumentSchema } from "@/lib/validation";
 
 type Ctx = RouteContext<"/api/documents/[id]">;
@@ -37,7 +38,8 @@ export async function PATCH(request: Request, { params }: Ctx) {
 
   const updated = await prisma.document.update({
     where: { id: found.document.id },
-    data: { title, content },
+    // Never store raw client HTML: keep only the tags the editor supports.
+    data: { title, content: content === undefined ? undefined : sanitizeDocumentHtml(content) },
     select: { id: true, title: true, updatedAt: true },
   });
   return NextResponse.json(updated);

@@ -1,0 +1,4 @@
+Hello <script>alert("xss")</script> world
+second line & more
+
+New paragraph

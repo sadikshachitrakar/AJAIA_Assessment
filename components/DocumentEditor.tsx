@@ -4,7 +4,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Collaborator } from "@/lib/documents";
 import type { Role } from "@/lib/permissions";
 import { EditorToolbar } from "./EditorToolbar";
@@ -46,6 +46,12 @@ export function DocumentEditor({ document: doc, role, collaborators }: Props) {
     onUpdate: ({ editor }) => autosave.schedule(editor.getHTML()),
   });
 
+  // Access revoked while open: freeze the editor so further typing can't silently go nowhere.
+  const accessLost = autosave.status === "no-access";
+  useEffect(() => {
+    if (accessLost) editor?.setEditable(false);
+  }, [accessLost, editor]);
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-100">
       <header className="sticky top-0 z-10 border-b border-gray-200 bg-white">
@@ -83,6 +89,13 @@ export function DocumentEditor({ document: doc, role, collaborators }: Props) {
 }
 
 function SaveIndicator({ status, error, onRetry }: { status: SaveStatus; error: string | null; onRetry: () => void }) {
+  if (status === "no-access") {
+    return (
+      <span role="alert" className="text-sm text-red-600">
+        {error} <Link href="/" className="underline">Back to documents</Link>
+      </span>
+    );
+  }
   if (status === "error") {
     return (
       <span role="alert" className="flex items-center gap-2 text-sm text-red-600" title={error ?? undefined}>

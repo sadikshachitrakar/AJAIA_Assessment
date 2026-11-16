@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
+export type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error" | "no-access";
 
 // Browsers cap keepalive request bodies at 64 KB (shared across in-flight requests).
 const KEEPALIVE_LIMIT = 60_000;
@@ -20,6 +20,7 @@ export function useAutosave(url: string, delay = 800) {
 
   const pending = useRef<string | null>(null); // latest content not yet sent
   const inFlight = useRef(false);
+  const accessLost = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearTimer = () => {
@@ -42,6 +43,15 @@ export function useAutosave(url: string, delay = 800) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content }),
         });
+        if (res.status === 404) {
+          // Unshared or deleted while open. Retrying can't help, so stop saving for good.
+          accessLost.current = true;
+          inFlight.current = false;
+          pending.current = null;
+          setError("You no longer have access to this document");
+          setStatus("no-access");
+          return;
+        }
         if (!res.ok) {
           const body = (await res.json().catch(() => null)) as { error?: string } | null;
           throw new Error(body?.error ?? `Save failed (${res.status})`);
@@ -62,6 +72,7 @@ export function useAutosave(url: string, delay = 800) {
 
   const schedule = useCallback(
     (content: string) => {
+      if (accessLost.current) return;
       pending.current = content;
       setStatus((s) => (s === "error" ? s : "pending")); // keep the error visible until a save succeeds
       clearTimer();

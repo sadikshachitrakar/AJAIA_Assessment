@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { listDocumentsForUser, type DocumentSummary } from "@/lib/documents";
 import { AppHeader } from "@/components/AppHeader";
+import { ImportButton } from "@/components/ImportButton";
 import { NewDocumentButton } from "@/components/NewDocumentButton";
 
 const dateFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
@@ -14,9 +15,17 @@ export default async function Dashboard() {
     <div className="min-h-screen bg-gray-50">
       <AppHeader user={user} />
       <main className="mx-auto w-full max-w-5xl space-y-10 px-6 py-8">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <h1 className="text-2xl font-semibold text-gray-900">Documents</h1>
-          <NewDocumentButton />
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-start gap-2">
+              <ImportButton />
+              <NewDocumentButton />
+            </div>
+            <p id="import-hint" className="text-right text-xs text-gray-500">
+              Supported: .txt, .md, .docx (max 2 MB). Images and tables aren&apos;t imported.
+            </p>
+          </div>
         </div>
 
         <DocumentSection title="My documents" docs={owned} empty="No documents yet. Create one to get started." />
