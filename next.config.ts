@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // cacheComponents is off: every page here is per-user (cookie-based), so
+  // classic dynamic rendering is simpler than wrapping each read in <Suspense>.
   turbopack: {
     rules: {
       "*.css": {
