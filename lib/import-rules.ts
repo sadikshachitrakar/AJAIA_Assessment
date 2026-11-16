@@ -29,7 +29,8 @@ export function checkImportFile(file: { name: string; size: number }): ImportChe
   }
   if (file.size === 0) return { ok: false, error: "The file is empty." };
   if (file.size > IMPORT_MAX_BYTES) {
-    const mb = (file.size / 1024 / 1024).toFixed(1);
+    // Round up so a file just over the limit never reads as "2.0 MB".
+    const mb = (Math.ceil((file.size / 1024 / 1024) * 10) / 10).toFixed(1);
     return { ok: false, error: `File is too large (${mb} MB). The limit is 2 MB.` };
   }
   return { ok: true, ext: ext as ImportExtension };

@@ -4,6 +4,7 @@ AI-Native Full Stack Developer Assignment
 A lightweight Google Docs–inspired editor.
 
 **Stack:** Next.js (App Router) · TypeScript · Tailwind · TipTap · Prisma + Neon Postgres · zod · Vitest
+· marked · mammoth · sanitize-html
 
 ## Setup
 
@@ -50,10 +51,26 @@ Defined as pure functions in `lib/permissions.ts` and enforced by every document
 | Shared user | ✓ | ✓ | – | – | – |
 | Anyone else | 404 | 404 | 404 | 404 | 404 |
 
+## Importing files
+
+**Import file** on the dashboard creates a new document owned by you, titled after the file name.
+
+| Type | Converted with | Notes |
+|---|---|---|
+| `.txt` | built-in | Blank lines start new paragraphs; markup is shown as text, never run |
+| `.md` | [marked](https://marked.js.org) (GFM) | Headings, bold, italic, lists |
+| `.docx` | [mammoth](https://github.com/mwilson/mammoth.js) | Headings, bold, italic, underline, lists |
+
+- Max **2 MB**. Files are checked by extension (browser MIME types for `.md` are unreliable).
+- Everything is sanitized with `sanitize-html` down to the tags the editor supports:
+  `p, h1–h3, strong/b, em/i, u, ul, ol, li, br`. Other tags are removed but their text is kept,
+  so **images are dropped and tables become plain paragraphs**. `h4–h6` become `h3`.
+- The same sanitizer runs on every content save, so the database only ever holds editor-safe HTML.
+
 ## Status
 
 - [x] Scaffold, schema, seed, mock login
 - [x] Document CRUD, dashboard, editor, autosave
 - [x] Sharing
-- [ ] Import (.txt / .md / .docx)
+- [x] Import (.txt / .md / .docx)
 - [ ] Validation pass + tests

@@ -14,7 +14,8 @@ const OPTIONS: sanitizeHtml.IOptions = {
 };
 
 export function sanitizeDocumentHtml(html: string): string {
-  return sanitizeHtml(html, OPTIONS).trim();
+  // Postgres text columns reject NUL bytes (error 22021), so drop them up front.
+  return sanitizeHtml(html.replace(/\u0000/g, ""), OPTIONS).trim();
 }
 
 /** True if the HTML has any visible text. */
