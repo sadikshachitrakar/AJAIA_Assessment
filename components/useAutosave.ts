@@ -43,12 +43,17 @@ export function useAutosave(url: string, delay = 800) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content }),
         });
-        if (res.status === 404) {
-          // Unshared or deleted while open. Retrying can't help, so stop saving for good.
+        if (res.status === 404 || res.status === 403) {
+          // Unshared/deleted (404) or downgraded to viewer (403) while open.
+          // Retrying can't help, so stop saving for good.
           accessLost.current = true;
           inFlight.current = false;
           pending.current = null;
-          setError("You no longer have access to this document");
+          setError(
+            res.status === 404
+              ? "You no longer have access to this document"
+              : "You can only view this document now",
+          );
           setStatus("no-access");
           return;
         }

@@ -1,0 +1,9 @@
+Weekly Status Update
+
+This is a plain text file. Each paragraph should become its own paragraph in the editor.
+
+Progress this week: the editor, sharing, and file import all work end to end.
+
+Blockers: none right now.
+
+Characters like <b>this</b> and <script>alert("hi")</script> stay as plain text and never run.

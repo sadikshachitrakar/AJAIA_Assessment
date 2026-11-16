@@ -45,11 +45,19 @@ Use **Switch user** in the header to jump between demo accounts.
 
 Defined as pure functions in `lib/permissions.ts` and enforced by every document route.
 
-| | View | Edit content | Rename | Share | Delete |
+| | View | Edit content | Rename | Share / change roles | Delete |
 |---|---|---|---|---|---|
 | Owner | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Shared user | ✓ | ✓ | – | – | – |
+| Shared as **editor** ("Can edit") | ✓ | ✓ | 403 | 403 | 403 |
+| Shared as **viewer** ("Can view") | ✓ | 403 | 403 | 403 | 403 |
 | Anyone else | 404 | 404 | 404 | 404 | 404 |
+
+Strangers get 404 rather than 403, so they can't tell that a document exists. New shares default to
+**editor**; the owner picks the role when sharing and can change it later from the Share dialog
+(`PATCH /api/documents/[id]/share/[userId]`). Viewers get a read-only editor with no toolbar.
+
+**Demo data** (`npm run db:seed`, safe to re-run): Alice owns *Welcome to Docs* (Bob: editor) and
+*Team Handbook* (Bob: viewer). Carol has access to neither — sign in as each to compare.
 
 ## Importing files
 

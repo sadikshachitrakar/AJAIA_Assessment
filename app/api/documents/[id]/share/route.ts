@@ -16,7 +16,7 @@ export async function POST(request: Request, { params }: RouteContext<"/api/docu
 
   const body = await parseJson(request, ShareSchema);
   if (!body.ok) return body.response;
-  const { email } = body.value; // already trimmed + lowercased by the schema
+  const { email, role } = body.value; // email already trimmed + lowercased; role defaults to editor
 
   if (email === auth.value.email.toLowerCase()) {
     return jsonError(400, "You already own this document");
@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: RouteContext<"/api/docu
   }
 
   try {
-    await prisma.documentShare.create({ data: { documentId: found.document.id, userId: target.id } });
+    await prisma.documentShare.create({ data: { documentId: found.document.id, userId: target.id, role } });
   } catch (e) {
     // Two concurrent requests can both pass the check above; the unique index decides.
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
@@ -39,5 +39,5 @@ export async function POST(request: Request, { params }: RouteContext<"/api/docu
     }
     throw e;
   }
-  return NextResponse.json(target satisfies Collaborator, { status: 201 });
+  return NextResponse.json({ ...target, role } satisfies Collaborator, { status: 201 });
 }

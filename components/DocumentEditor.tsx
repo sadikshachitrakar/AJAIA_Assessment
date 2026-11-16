@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { Collaborator } from "@/lib/documents";
-import type { Role } from "@/lib/permissions";
+import { ROLE_LABEL, can, type Role } from "@/lib/permissions";
 import { EditorToolbar } from "./EditorToolbar";
 import { ShareDialog } from "./ShareDialog";
 import { TitleInput } from "./TitleInput";
@@ -18,14 +18,14 @@ type Props = {
   collaborators: Collaborator[];
 };
 
-const ROLE_LABEL: Record<Role, string> = { owner: "Owner", editor: "Can edit" };
-
 export function DocumentEditor({ document: doc, role, collaborators }: Props) {
   const autosave = useAutosave(`/api/documents/${doc.id}`);
   const isOwner = role === "owner";
+  const canEdit = can(role, "edit"); // viewers get a read-only editor with no toolbar
 
   const editor = useEditor({
     immediatelyRender: false, // avoid SSR hydration mismatch
+    editable: canEdit,
     extensions: [
       // Only the formats the toolbar supports — this also disables their shortcuts/input rules.
       StarterKit.configure({
@@ -60,23 +60,21 @@ export function DocumentEditor({ document: doc, role, collaborators }: Props) {
             ← Docs
           </Link>
           <TitleInput documentId={doc.id} initialTitle={doc.title} editable={isOwner} />
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
-              isOwner ? "bg-blue-50 text-blue-700" : "bg-amber-100 text-amber-800"
-            }`}
-          >
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${ROLE_BADGE[role]}`}>
             {ROLE_LABEL[role]}
           </span>
           {!isOwner && <span className="shrink-0 text-xs text-gray-500">Owned by {doc.owner.name}</span>}
           <div className="ml-auto flex shrink-0 items-center gap-3">
-            <SaveIndicator status={autosave.status} error={autosave.error} onRetry={autosave.retry} />
+            {canEdit && <SaveIndicator status={autosave.status} error={autosave.error} onRetry={autosave.retry} />}
             {isOwner && <ShareDialog documentId={doc.id} initialCollaborators={collaborators} />}
             {isOwner && <DeleteButton documentId={doc.id} />}
           </div>
         </div>
-        <div className="border-t border-gray-100 px-4 py-1.5">
-          {editor ? <EditorToolbar editor={editor} /> : <div className="h-8" />}
-        </div>
+        {canEdit && (
+          <div className="border-t border-gray-100 px-4 py-1.5">
+            {editor ? <EditorToolbar editor={editor} /> : <div className="h-8" />}
+          </div>
+        )}
       </header>
 
       <main className="flex-1 px-4 py-8">
@@ -87,6 +85,12 @@ export function DocumentEditor({ document: doc, role, collaborators }: Props) {
     </div>
   );
 }
+
+const ROLE_BADGE: Record<Role, string> = {
+  owner: "bg-blue-50 text-blue-700",
+  editor: "bg-amber-100 text-amber-800",
+  viewer: "bg-gray-100 text-gray-700",
+};
 
 function SaveIndicator({ status, error, onRetry }: { status: SaveStatus; error: string | null; onRetry: () => void }) {
   if (status === "no-access") {

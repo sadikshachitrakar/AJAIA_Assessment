@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL") // pooled (Neon -pooler host) — used at runtime
-  directUrl = env("DIRECT_URL")   // direct — used by migrate/db push
+  directUrl = env("DIRECT_URL") // direct — used by migrate/db push
 }
 
 model User {
@@ -29,13 +29,19 @@ model Document {
   @@index([ownerId])
 }
 
+enum ShareRole {
+  viewer
+  editor
+}
+
 model DocumentShare {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   documentId String
   userId     String
-  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  role       ShareRole @default(editor) // default keeps pre-existing shares working as before
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
 
   @@unique([documentId, userId])
   @@index([userId])

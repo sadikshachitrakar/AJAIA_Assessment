@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { ROLE_LABEL } from "@/lib/permissions";
 import { listDocumentsForUser, type DocumentSummary } from "@/lib/documents";
 import { AppHeader } from "@/components/AppHeader";
 import { ImportButton } from "@/components/ImportButton";
@@ -65,6 +66,9 @@ function DocumentSection({
                 {shared ? (
                   <>
                     <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Shared</span>
+                    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
+                      {ROLE_LABEL[d.role]}
+                    </span>
                     <span className="shrink-0 text-xs text-gray-500">Owned by {d.owner.name}</span>
                   </>
                 ) : (

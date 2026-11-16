@@ -30,6 +30,8 @@
 - **Setup debugging:** found two database errors in minutes. P1001 was
   a leftover placeholder `DIRECT_URL`; P1000 was a masked password,
   fixed by resetting it.
+- **Import (step 4):** .txt/.md/.docx import, a shared sanitizer, and
+  28 new tests in about 6 minutes of agent time.
 
 ## What I changed or rejected
 - **Rejected Neon's auto-generated agent prompt.** It would have
@@ -57,6 +59,9 @@
 - **Process correction:** I committed once while the agent was mid-step,
   which deployed a half-built version. After that, every prompt ended
   with "Don't commit until I've reviewed it."
+- **Asked for defense in depth:** sanitize on every save (PATCH), not
+  just on import, and keep underline in .docx files through mammoth's
+  style map, since mammoth drops underline by default.
 
 ## How I verified correctness, UX, and reliability
 - **Access control:** 20 unit tests cover every role against every
@@ -72,8 +77,14 @@
 - **UX:** I checked manually that formatting survives a refresh
   [confirm], and the agent's browser tests caught and fixed two UX
   issues: dialog focus landing on "Close", and a raw validation message.
-- **Import:** [add after step 4: fixture tests plus importing my own
-  .md, .txt, and .docx files]
+- **Import:** - **Import:** 48 unit tests in total. The agent checked the converters'
+  real output before writing test expectations, then sent the API bad
+  inputs and found two bugs: a binary file renamed to .md caused a 500
+  (Postgres rejects NUL bytes), and the size error read "2.0 MB, limit
+  2 MB". Both are fixed, with a regression test. When a test failed,
+  the agent determined the test was wrong (a bare ".md" counts as a
+  dotfile), not the code. I also imported my own .md, .txt and .docx
+  files on the live site.
 
 ## Known limitations
 - Concurrent edits: last write wins.

@@ -2,6 +2,12 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import type { Collaborator } from "@/lib/documents";
+import type { ShareRole } from "@/lib/permissions";
+
+const ROLE_OPTIONS: { value: ShareRole; label: string }[] = [
+  { value: "editor", label: "Can edit" },
+  { value: "viewer", label: "Can view" },
+];
 
 type Props = { documentId: string; initialCollaborators: Collaborator[] };
 
@@ -15,10 +21,12 @@ export function ShareDialog({ documentId, initialCollaborators }: Props) {
   const emailRef = useRef<HTMLInputElement>(null);
   const [collaborators, setCollaborators] = useState(initialCollaborators);
   const [email, setEmail] = useState("");
+  const [newRole, setNewRole] = useState<ShareRole>("editor");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null); // shared by remove + role change
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   async function onAdd(e: FormEvent) {
     e.preventDefault();
@@ -28,7 +36,7 @@ export function ShareDialog({ documentId, initialCollaborators }: Props) {
       const res = await fetch(`/api/documents/${documentId}/share`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, role: newRole }),
       });
       if (!res.ok) throw new Error(await errorMessage(res, "Couldn't share document"));
       const added = (await res.json()) as Collaborator;
@@ -38,6 +46,28 @@ export function ShareDialog({ documentId, initialCollaborators }: Props) {
       setAddError(err instanceof Error ? err.message : "Couldn't share document");
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function onChangeRole(user: Collaborator, role: ShareRole) {
+    if (role === user.role) return;
+    setUpdatingId(user.id);
+    setRemoveError(null);
+    const setRole = (r: ShareRole) =>
+      setCollaborators((list) => list.map((c) => (c.id === user.id ? { ...c, role: r } : c)));
+    setRole(role); // optimistic
+    try {
+      const res = await fetch(`/api/documents/${documentId}/share/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (!res.ok) throw new Error(await errorMessage(res, `Couldn't change ${user.name}'s access`));
+    } catch (err) {
+      setRole(user.role); // roll back
+      setRemoveError(err instanceof Error ? err.message : `Couldn't change ${user.name}'s access`);
+    } finally {
+      setUpdatingId(null);
     }
   }
 
@@ -85,7 +115,7 @@ export function ShareDialog({ documentId, initialCollaborators }: Props) {
               ×
             </button>
           </div>
-          <p className="mt-1 text-sm text-gray-500">Collaborators can view and edit the content.</p>
+          <p className="mt-1 text-sm text-gray-500">Editors can change the content; viewers can only read it.</p>
 
           <form onSubmit={onAdd} className="mt-4 flex gap-2">
             <label htmlFor="share-email" className="sr-only">Email address</label>
@@ -106,6 +136,17 @@ export function ShareDialog({ documentId, initialCollaborators }: Props) {
                 addError ? "border-red-400" : "border-gray-300"
               }`}
             />
+            <label htmlFor="share-role" className="sr-only">Access</label>
+            <select
+              id="share-role"
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value as ShareRole)}
+              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700"
+            >
+              {ROLE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
             <button
               type="submit"
               disabled={adding || email.trim() === ""}
@@ -134,7 +175,17 @@ export function ShareDialog({ documentId, initialCollaborators }: Props) {
                     <span className="block truncate text-sm font-medium text-gray-900">{c.name}</span>
                     <span className="block truncate text-xs text-gray-500">{c.email}</span>
                   </span>
-                  <span className="text-xs text-gray-500">Can edit</span>
+                  <select
+                    value={c.role}
+                    onChange={(e) => onChangeRole(c, e.target.value as ShareRole)}
+                    disabled={updatingId === c.id || removingId === c.id}
+                    aria-label={`Access for ${c.name}`}
+                    className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs text-gray-700 disabled:opacity-50"
+                  >
+                    {ROLE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                   <button
                     type="button"
                     onClick={() => onRemove(c)}
