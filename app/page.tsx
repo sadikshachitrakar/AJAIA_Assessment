@@ -53,10 +53,17 @@ function DocumentSection({
               <Link href={`/documents/${d.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50">
                 <span aria-hidden className="text-blue-600">▤</span>
                 <span className="min-w-0 flex-1 truncate font-medium text-gray-900">{d.title}</span>
-                {shared && (
-                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
-                    Shared · {d.owner.name}
-                  </span>
+                {shared ? (
+                  <>
+                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Shared</span>
+                    <span className="shrink-0 text-xs text-gray-500">Owned by {d.owner.name}</span>
+                  </>
+                ) : (
+                  d.collaboratorCount > 0 && (
+                    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                      {d.collaboratorCount} {d.collaboratorCount === 1 ? "collaborator" : "collaborators"}
+                    </span>
+                  )
                 )}
                 <time dateTime={d.updatedAt.toISOString()} className="shrink-0 text-xs text-gray-500">
                   {dateFormat.format(d.updatedAt)} UTC

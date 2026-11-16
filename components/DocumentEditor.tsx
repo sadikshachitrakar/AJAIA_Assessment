@@ -5,17 +5,22 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { Collaborator } from "@/lib/documents";
 import type { Role } from "@/lib/permissions";
 import { EditorToolbar } from "./EditorToolbar";
+import { ShareDialog } from "./ShareDialog";
 import { TitleInput } from "./TitleInput";
 import { useAutosave, type SaveStatus } from "./useAutosave";
 
 type Props = {
   document: { id: string; title: string; content: string; owner: { name: string } };
   role: Role;
+  collaborators: Collaborator[];
 };
 
-export function DocumentEditor({ document: doc, role }: Props) {
+const ROLE_LABEL: Record<Role, string> = { owner: "Owner", editor: "Can edit" };
+
+export function DocumentEditor({ document: doc, role, collaborators }: Props) {
   const autosave = useAutosave(`/api/documents/${doc.id}`);
   const isOwner = role === "owner";
 
@@ -49,13 +54,17 @@ export function DocumentEditor({ document: doc, role }: Props) {
             ← Docs
           </Link>
           <TitleInput documentId={doc.id} initialTitle={doc.title} editable={isOwner} />
-          {!isOwner && (
-            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
-              Shared by {doc.owner.name}
-            </span>
-          )}
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+              isOwner ? "bg-blue-50 text-blue-700" : "bg-amber-100 text-amber-800"
+            }`}
+          >
+            {ROLE_LABEL[role]}
+          </span>
+          {!isOwner && <span className="shrink-0 text-xs text-gray-500">Owned by {doc.owner.name}</span>}
           <div className="ml-auto flex shrink-0 items-center gap-3">
             <SaveIndicator status={autosave.status} error={autosave.error} onRetry={autosave.retry} />
+            {isOwner && <ShareDialog documentId={doc.id} initialCollaborators={collaborators} />}
             {isOwner && <DeleteButton documentId={doc.id} />}
           </div>
         </div>

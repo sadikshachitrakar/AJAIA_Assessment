@@ -20,3 +20,9 @@ export const UpdateDocumentSchema = z
   });
 
 export type UpdateDocumentInput = z.infer<typeof UpdateDocumentSchema>;
+
+export const ShareSchema = z
+  .object({
+    email: z.string({ error: "Email is required" }).trim().toLowerCase().pipe(z.email("Enter a valid email address")),
+  })
+  .strict();
