@@ -20,7 +20,6 @@ export const UpdateDocumentSchema = z
     message: "Provide a title or content to update",
   });
 
-export type UpdateDocumentInput = z.infer<typeof UpdateDocumentSchema>;
 
 const ShareRoleSchema = z.enum(SHARE_ROLES, { error: 'Role must be "viewer" or "editor"' });
 

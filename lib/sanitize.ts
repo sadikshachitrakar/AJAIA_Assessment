@@ -18,7 +18,6 @@ export function sanitizeDocumentHtml(html: string): string {
   return sanitizeHtml(html.replace(/\u0000/g, ""), OPTIONS).trim();
 }
 
-/** True if the HTML has any visible text. */
 export function hasText(html: string): boolean {
   return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} }).trim().length > 0;
 }

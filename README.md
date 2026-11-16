@@ -1,84 +1,98 @@
-# AJAIA_Assessment
-AI-Native Full Stack Developer Assignment
+# Docs: a lightweight collaborative editor
 
-A lightweight Google Docs–inspired editor.
+A small Google Docs–style editor built for the Ajaia AI-Native Full Stack
+Developer assignment.
 
-**Stack:** Next.js (App Router) · TypeScript · Tailwind · TipTap · Prisma + Neon Postgres · zod · Vitest
-· marked · mammoth · sanitize-html
+**Live app:** https://ajaia-assessment-rosy-six.vercel.app
 
-## Setup
+**Test accounts:** no passwords. Pick a user on the login page, and use
+**Switch user** in the header to change accounts.
 
-1. Install dependencies (also runs `prisma generate`):
+| User | Email | In the demo |
+|---|---|---|
+| Alice | alice@demo.com | Owns the seed documents |
+| Bob | bob@demo.com | Can edit one shared document and only view the other |
+| Carol | carol@demo.com | Has no access to Alice's documents |
+
+## Features
+- Create, rename, edit and delete documents
+- Rich text: bold, italic, underline, headings (H1–H3), bulleted and
+  numbered lists
+- Autosave with a status indicator (Saving… / Saved / Couldn't save, Retry)
+- Import `.txt`, `.md` and `.docx` files (max 2 MB) as new documents.
+  Images aren't imported, and tables come through as plain text.
+- Share by email as **Editor** or **Viewer**; owners can change roles or
+  remove access
+- "My documents" and "Shared with me" shown separately on the dashboard
+
+## Stack
+Next.js (App Router) · TypeScript · Tailwind · TipTap · Prisma ·
+Postgres (Neon) · zod · Vitest · Vercel
+
+## Run locally
+You need Node 20 or newer and a Postgres database. A free Neon database
+works, and so does a local Postgres.
+
+1. Install dependencies (this also runs `prisma generate`):
    ```bash
    npm install
    ```
-2. Create your env file from the template and fill in the three values:
+2. Create your env file and fill in the three values:
    ```bash
    cp .env.example .env
    ```
    | Variable | Value |
    |---|---|
-   | `DATABASE_URL` | Neon **pooled** connection string (host contains `-pooler`) |
-   | `DIRECT_URL` | Neon **direct** connection string (same host without `-pooler`) |
-   | `SESSION_SECRET` | Random secret: `openssl rand -hex 32` |
-3. Create the tables and seed demo data:
+   | `DATABASE_URL` | Pooled connection string (on Neon, the host contains `-pooler`) |
+   | `DIRECT_URL` | Direct connection string. With a local Postgres, use the same value as `DATABASE_URL` |
+   | `SESSION_SECRET` | Any random string, e.g. from `openssl rand -hex 32` |
+3. Create the tables and seed the demo data:
    ```bash
-   npm run db:push   # uses DIRECT_URL
-   npm run db:seed   # alice@demo.com, bob@demo.com, carol@demo.com + a doc Alice shares with Bob
+   npm run db:push
+   npm run db:seed
    ```
-4. Run it:
+4. Start the app and run the tests:
    ```bash
-   npm run dev       # http://localhost:3000
-   npm test          # unit tests
+   npm run dev     # http://localhost:3000
+   npm test        # 54 unit tests
    ```
 
-On Vercel, set the same three variables in the project settings.
+To deploy on Vercel, import the repo and set the same three environment
+variables.
 
-## Auth (mocked)
-
-`/login` lists the seeded users. Choosing one sets an httpOnly cookie containing the user id,
-HMAC-SHA256 signed with `SESSION_SECRET`. `proxy.ts` rejects missing or invalid cookies
-(redirect to `/login` for pages, 401 for `/api/*`); `getCurrentUser()` in `lib/auth.ts` loads the user.
-Use **Switch user** in the header to jump between demo accounts.
+## How login works (mocked)
+`/login` lists the seeded users. Picking one sets an httpOnly cookie with
+the user id, signed with HMAC-SHA256 using `SESSION_SECRET`. Requests
+without a valid cookie are sent to `/login` (pages) or get a 401 (API).
+This is for the demo only, not production login.
 
 ## Access rules
+Defined as pure functions in `lib/permissions.ts` and enforced on every
+document route.
 
-Defined as pure functions in `lib/permissions.ts` and enforced by every document route.
-
-| | View | Edit content | Rename | Share / change roles | Delete |
+| | View | Edit content | Rename | Share / manage access | Delete |
 |---|---|---|---|---|---|
 | Owner | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Shared as **editor** ("Can edit") | ✓ | ✓ | 403 | 403 | 403 |
-| Shared as **viewer** ("Can view") | ✓ | 403 | 403 | 403 | 403 |
+| Editor | ✓ | ✓ | – | – | – |
+| Viewer | ✓ | – | – | – | – |
 | Anyone else | 404 | 404 | 404 | 404 | 404 |
 
-Strangers get 404 rather than 403, so they can't tell that a document exists. New shares default to
-**editor**; the owner picks the role when sharing and can change it later from the Share dialog
-(`PATCH /api/documents/[id]/share/[userId]`). Viewers get a read-only editor with no toolbar.
+A shared user who tries something their role doesn't allow gets a 403.
+Anyone without access gets a 404, so they can't tell the document exists.
 
-**Demo data** (`npm run db:seed`, safe to re-run): Alice owns *Welcome to Docs* (Bob: editor) and
-*Team Handbook* (Bob: viewer). Carol has access to neither — sign in as each to compare.
+## Project layout
+```
+app/api/documents/       document and sharing routes
+app/api/import/          file import route
+lib/permissions.ts       access rules
+lib/import.ts            file conversion
+lib/sanitize.ts          HTML cleaning for imports and saves
+components/              editor, toolbar, share dialog, autosave hook
+tests/                   unit tests and fixtures
+sample-files/            example files for trying the import
+screenshots/             key screens
+```
 
-## Importing files
-
-**Import file** on the dashboard creates a new document owned by you, titled after the file name.
-
-| Type | Converted with | Notes |
-|---|---|---|
-| `.txt` | built-in | Blank lines start new paragraphs; markup is shown as text, never run |
-| `.md` | [marked](https://marked.js.org) (GFM) | Headings, bold, italic, lists |
-| `.docx` | [mammoth](https://github.com/mwilson/mammoth.js) | Headings, bold, italic, underline, lists |
-
-- Max **2 MB**. Files are checked by extension (browser MIME types for `.md` are unreliable).
-- Everything is sanitized with `sanitize-html` down to the tags the editor supports:
-  `p, h1–h3, strong/b, em/i, u, ul, ol, li, br`. Other tags are removed but their text is kept,
-  so **images are dropped and tables become plain paragraphs**. `h4–h6` become `h3`.
-- The same sanitizer runs on every content save, so the database only ever holds editor-safe HTML.
-
-## Status
-
-- [x] Scaffold, schema, seed, mock login
-- [x] Document CRUD, dashboard, editor, autosave
-- [x] Sharing
-- [x] Import (.txt / .md / .docx)
-- [ ] Validation pass + tests
+## More
+- `ARCHITECTURE.md`: decisions, tradeoffs and next steps
+- `AI_WORKFLOW.md`: how I used AI and checked its work

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { readError } from "@/lib/http";
 
 export type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error" | "no-access";
 
@@ -57,10 +58,7 @@ export function useAutosave(url: string, delay = 800) {
           setStatus("no-access");
           return;
         }
-        if (!res.ok) {
-          const body = (await res.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(body?.error ?? `Save failed (${res.status})`);
-        }
+        if (!res.ok) throw new Error(await readError(res, `Save failed (${res.status})`));
         inFlight.current = false;
         setError(null);
         if (pending.current !== null) return run(); // user typed while we were saving

@@ -2,6 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import type { Collaborator } from "@/lib/documents";
+import { readError } from "@/lib/http";
 import type { ShareRole } from "@/lib/permissions";
 
 const ROLE_OPTIONS: { value: ShareRole; label: string }[] = [
@@ -10,11 +11,6 @@ const ROLE_OPTIONS: { value: ShareRole; label: string }[] = [
 ];
 
 type Props = { documentId: string; initialCollaborators: Collaborator[] };
-
-async function errorMessage(res: Response, fallback: string) {
-  const body = (await res.json().catch(() => null)) as { error?: string } | null;
-  return body?.error ?? fallback;
-}
 
 export function ShareDialog({ documentId, initialCollaborators }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -38,7 +34,7 @@ export function ShareDialog({ documentId, initialCollaborators }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, role: newRole }),
       });
-      if (!res.ok) throw new Error(await errorMessage(res, "Couldn't share document"));
+      if (!res.ok) throw new Error(await readError(res, "Couldn't share document"));
       const added = (await res.json()) as Collaborator;
       setCollaborators((list) => [...list, added]);
       setEmail("");
@@ -62,7 +58,7 @@ export function ShareDialog({ documentId, initialCollaborators }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
       });
-      if (!res.ok) throw new Error(await errorMessage(res, `Couldn't change ${user.name}'s access`));
+      if (!res.ok) throw new Error(await readError(res, `Couldn't change ${user.name}'s access`));
     } catch (err) {
       setRole(user.role); // roll back
       setRemoveError(err instanceof Error ? err.message : `Couldn't change ${user.name}'s access`);
@@ -76,7 +72,7 @@ export function ShareDialog({ documentId, initialCollaborators }: Props) {
     setRemoveError(null);
     try {
       const res = await fetch(`/api/documents/${documentId}/share/${user.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(await errorMessage(res, `Couldn't remove ${user.name}`));
+      if (!res.ok) throw new Error(await readError(res, `Couldn't remove ${user.name}`));
       setCollaborators((list) => list.filter((c) => c.id !== user.id));
     } catch (err) {
       setRemoveError(err instanceof Error ? err.message : `Couldn't remove ${user.name}`);

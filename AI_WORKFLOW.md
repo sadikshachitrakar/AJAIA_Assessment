@@ -1,91 +1,104 @@
 # AI Workflow Note
 
-## Tools used
-- **Claude (chat):** turned the brief into a scoped plan, compared stack
-  options, wrote step-by-step build prompts, and debugged setup issues.
-- **Claude Code:** implemented each build step and verified its own work
-  with HTTP checks and real-browser testing (Chrome DevTools).
+## Tools I used
 
-## How I worked with AI
-1. **Plan before code.** I used AI to list the brief's ambiguities,
-   lock the decisions (stack, mocked auth, import-as-new-document,
-   last-write-wins), and split the build into 5 steps.
-2. **Fixed stack and spec up front.** The kickoff prompt pinned the
-   stack, data model, access rules, and error codes, so the agent
-   couldn't drift into over-engineering.
-3. **Review gate after each step.** The agent listed the files it
-   would touch, built one step, verified it, and stopped. Nothing was
-   committed until I reviewed it.
-4. **Parallel work.** I set up Neon and deployed to Vercel while the
-   agent built the editor.
+I used two AI tools for different jobs. Claude (the chat app) was my
+planner and second opinion. I used it to break down the brief, choose
+the stack, write the prompt for each build step, and review what the
+coding agent produced. Claude Code did the actual building in my repo,
+and it tested its own work by calling the API directly and clicking
+through the app in a real browser.
 
-## Where AI materially sped up the work
-- **Planning:** a scoped plan, data model, and build prompts in about
-  15 minutes.
-- **Editor and autosave (step 2):** dashboard, document API, TipTap
-  editor, and debounced autosave built in one pass, plus 19 HTTP checks
-  and browser tests, including a simulated network failure.
-- **Sharing (step 3):** share and remove endpoints, the share dialog,
-  dashboard badges, and 20 permission unit tests, verified end to end.
-- **Setup debugging:** found two database errors in minutes. P1001 was
-  a leftover placeholder `DIRECT_URL`; P1000 was a masked password,
-  fixed by resetting it.
-- **Import (step 4):** .txt/.md/.docx import, a shared sanitizer, and
-  28 new tests in about 6 minutes of agent time.
+## How I worked
+
+I didn't start by asking for a "Google Docs clone". I spent the first
+15 minutes or so on a plan: what the brief left open, what I'd decide
+myself (mocked login, last save wins, imported files become new
+documents), and what I'd skip. Then I split the build into five steps:
+setup and login, the editor and autosave, sharing, import, and tests.
+
+Each step had a written spec with the routes, the status codes, the
+data model, and what "done" meant. Here's part of my prompt for the
+sharing step:
+
+> POST /api/documents/[id]/share { email }: trim + lowercase the email.
+> 400 for self or unknown user, 409 if already shared, 404 if no
+> access, 403 if not owner.
+> Verify in the browser: Alice shares with Bob → Bob sees it under
+> "Shared with me" and can edit → Carol gets 404 → Alice removes Bob
+> → Bob loses access.
+> Don't commit step 3 until I've reviewed it.
+
+To keep the quality up, the agent had to list the files it would change
+before writing any code, and stop after each step. A step only counted
+as done when typecheck, lint, tests and the production build passed and
+the flow worked in the browser. I didn't commit anything until I'd
+looked at it. (I broke that rule twice early on by committing while the
+agent was mid-step, and both times it pulled in half-finished code.
+After that I only committed between steps.)
+
+I also kept the scope narrow on purpose. Documents support headings,
+bold, italic, underline and lists. Images, tables, links and code
+blocks aren't supported; if an imported file has them, the text comes
+through and the rest is dropped. For libraries I went with established
+open-source ones rather than writing my own: TipTap for the editor,
+Prisma with Neon Postgres, marked and mammoth for importing Markdown
+and Word files, sanitize-html, zod and Vitest.
+
+## Where AI actually saved time
+
+Mostly in the build itself. The editor with autosave, sharing, import,
+and the viewer/editor roles each took about six minutes of agent time,
+tests included. By hand, each would have taken me much longer. It also
+helped with setup problems: when Prisma couldn't connect to the
+database, it took a few minutes to find that one connection string
+still had a placeholder in it and the other had a hidden password.
 
 ## What I changed or rejected
-- **Rejected Neon's auto-generated agent prompt.** It would have
-  replaced the existing Prisma setup with Neon's own driver. I gave a
-  scoped prompt that kept the stack.
-- **Chose Neon + Prisma over Supabase.** Supabase's free tier pauses
-  inactive projects, which risks the demo being down when reviewers
-  test it. Prisma keeps access rules in TypeScript, where they can be
-  unit-tested.
-- **Scope cuts were my calls, not the AI's:** no real-time co-editing
-  (last write wins), mocked auth with seeded users, and a single
-  "can edit" share level.
-- **Added reviewer-focused requirements myself:** exact HTTP error
-  codes, and a "Switch user" link so reviewers can test sharing without
-  logging in and out.
-- **Accepted the agent's design corrections after review:**
-  - It turned `/login` into a user picker, because redirecting
-    signed-in users would have broken "Switch user".
-  - Only the owner sees the collaborator list, so shared users can't
-    see other people's emails.
-  - It upgraded `@types/node` for Vitest instead of forcing the install
-    with `--legacy-peer-deps`.
-- **Unrequested feature:** the agent added owner-only delete.
-  [Kept / removed, and why]
-- **Process correction:** I committed once while the agent was mid-step,
-  which deployed a half-built version. After that, every prompt ended
-  with "Don't commit until I've reviewed it."
-- **Asked for defense in depth:** sanitize on every save (PATCH), not
-  just on import, and keep underline in .docx files through mammoth's
-  style map, since mammoth drops underline by default.
 
-## How I verified correctness, UX, and reliability
-- **Access control:** 20 unit tests cover every role against every
-  action. HTTP checks confirmed 401 with no session, 404 for strangers
-  (so they can't tell a document exists), 403 for shared users trying
-  owner-only actions, and 400/409 for bad share requests.
-- **End-to-end sharing:** Alice shares with Bob, Bob edits, Carol gets
-  404, Alice removes Bob, Bob loses access. Checked by the agent in a
-  browser and by me on the live site. [Confirm once you've done it]
-- **Autosave reliability:** no save on page load, about 23 keystrokes
-  produce a single save, a failed save shows Retry and recovers the
-  text, and pending edits save when leaving the page.
-- **UX:** I checked manually that formatting survives a refresh
-  [confirm], and the agent's browser tests caught and fixed two UX
-  issues: dialog focus landing on "Close", and a raw validation message.
-- **Import:** - **Import:** 48 unit tests in total. The agent checked the converters'
-  real output before writing test expectations, then sent the API bad
-  inputs and found two bugs: a binary file renamed to .md caused a 500
-  (Postgres rejects NUL bytes), and the size error read "2.0 MB, limit
-  2 MB". Both are fixed, with a regression test. When a test failed,
-  the agent determined the test was wrong (a bare ".md" counts as a
-  dotfile), not the code. I also imported my own .md, .txt and .docx
-  files on the live site.
+- When I created the Neon database, Neon offered a ready-made prompt to
+  paste into my coding agent. I had it checked first and didn't use it,
+  because it would have replaced the Prisma setup I already had.
+- I questioned some recommendations before going along with them. I
+  asked why Prisma and Neon instead of Supabase, and only agreed once
+  the reason was clear: Supabase pauses free projects after a week of
+  inactivity, which could take my demo down while it's being reviewed.
+- Deploying to Vercel while the agent was still building the editor
+  was my idea, to save time.
+- For the optional extra, I picked viewer/editor roles because they
+  build on sharing, which already had tests, instead of starting
+  something new.
+- The agent added a delete button I hadn't asked for. I kept it because
+  it's owner-only, small, and covered by the permission tests.
+- To save time, I had the sample Word file generated by a script
+  instead of making it in Google Docs. I checked that it imports
+  correctly.
 
-## Known limitations
-- Concurrent edits: last write wins.
-- Mocked auth is for demo purposes only and not production-safe.
+## How I checked the work
+
+The 54 unit tests cover the permission rules (every role against every
+action), file import, and HTML cleaning. On top of that, the agent sent
+the API bad input to check the 400/401/403/404/409 responses, and that
+found a real bug: a binary file renamed to .md crashed the server,
+because Postgres won't store a NUL byte. That's fixed and has a test now.
+
+For autosave, the agent cut the network mid-save to make sure Retry
+brings the text back, and checked that edits made right before leaving
+the page still get saved.
+
+For UX, I clicked through every flow as each user, and the agent's
+browser runs caught two rough edges I'd have missed: the share dialog
+opened with focus on Close instead of the email field, and a missing
+email showed a raw validation error. Both are fixed.
+
+I also tested the live site myself, switching between Alice, Bob and
+Carol. That's how I noticed sharing was missing on the live site even
+though it worked locally. Vercel was still serving an old version, and
+a fresh deploy fixed it.
+
+## What I didn't build
+
+Revision history, a caching layer, real-time co-editing (right now the
+last save wins), and support for images and tables. With another few
+hours, I'd first stop one person's save from silently overwriting
+another's, then add revision history.

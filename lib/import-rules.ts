@@ -4,7 +4,7 @@
 export const IMPORT_EXTENSIONS = [".txt", ".md", ".docx"] as const;
 export type ImportExtension = (typeof IMPORT_EXTENSIONS)[number];
 
-export const IMPORT_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+export const IMPORT_MAX_BYTES = 2 * 1024 * 1024;
 
 /** For the file picker. Extensions first: browser MIME types for .md are unreliable. */
 export const IMPORT_ACCEPT = [

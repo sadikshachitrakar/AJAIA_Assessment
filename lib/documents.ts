@@ -85,4 +85,3 @@ export async function listDocumentsForUser(userId: string) {
   };
 }
 
-export type { Role };

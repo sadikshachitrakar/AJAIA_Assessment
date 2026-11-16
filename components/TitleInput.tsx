@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { readError } from "@/lib/http";
 import { TITLE_MAX, TitleSchema } from "@/lib/validation";
 
 type Props = { documentId: string; initialTitle: string; editable: boolean };
@@ -35,10 +36,7 @@ export function TitleInput({ documentId, initialTitle, editable }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
       });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? "Couldn't rename document");
-      }
+      if (!res.ok) throw new Error(await readError(res, "Couldn't rename document"));
       setSaved(title);
       setError(null);
     } catch (e) {
